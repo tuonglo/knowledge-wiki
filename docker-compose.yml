@@ -1,0 +1,77 @@
+name: knowledge-wiki
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kw}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kw}
+      POSTGRES_DB: ${POSTGRES_DB:-kw}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kw} -d ${POSTGRES_DB:-kw}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # App services run under the "app" profile: `docker compose --profile app up`.
+  # For day-to-day dev, run only postgres+redis in Docker and the apps on the host.
+  api:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kw}:${POSTGRES_PASSWORD:-kw}@postgres:5432/${POSTGRES_DB:-kw}
+      REDIS_URL: redis://redis:6379
+      API_PORT: 4000
+      WEB_ORIGIN: http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  ai:
+    profiles: ["app"]
+    build:
+      context: services/ai
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kw}:${POSTGRES_PASSWORD:-kw}@postgres:5432/${POSTGRES_DB:-kw}
+      REDIS_URL: redis://redis:6379
+      WEB_ORIGIN: http://localhost:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  web:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on: [api, ai]
+
+volumes:
+  pgdata:
+  redisdata:

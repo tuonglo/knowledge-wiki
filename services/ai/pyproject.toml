@@ -1,0 +1,42 @@
+[project]
+name = "kw-ai"
+version = "0.1.0"
+description = "RAG + indexing service for knowledge-wiki"
+readme = "README.md"
+authors = [
+    { name = "Tuong Lo", email = "tuongduonglo204@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.163.1",
+    "psycopg[binary,pool]>=3.3.9",
+    "pydantic-settings>=2.16.3",
+    "redis>=8.1.0",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+kw-ai = "kw_ai:main"
+
+[build-system]
+requires = ["uv_build>=0.13.8,<0.14.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.2",
+    "pytest>=9.2.0",
+    "pytest-asyncio>=1.5.0",
+    "ruff>=0.17.5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

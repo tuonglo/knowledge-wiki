@@ -1,0 +1,12 @@
+// Prisma owns ALL migrations for the database, including tables the Python
+// service reads/writes (e.g. the pgvector chunks table, added in Phase 4).
+// Models arrive in Phase 1.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
