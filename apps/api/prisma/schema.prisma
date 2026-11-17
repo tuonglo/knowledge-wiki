@@ -1,6 +1,5 @@
 // Prisma owns ALL migrations for the database, including tables the Python
 // service reads/writes (e.g. the pgvector chunks table, added in Phase 4).
-// Models arrive in Phase 1.
 
 generator client {
   provider = "prisma-client"
@@ -9,4 +8,111 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+/// Ordered least → most privileged. Mirrors `Role` in @kw/shared.
+enum Role {
+  VIEWER
+  EDITOR
+  OWNER
+}
+
+/// A person. Can log in through several providers (see Account).
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+
+  accounts         Account[]
+  refreshTokens    RefreshToken[]
+  memberships      Membership[]
+  documentGrants   DocumentPermission[]
+  createdDocuments Document[]           @relation("DocumentCreator")
+}
+
+/// One login method for a User, e.g. their GitHub account.
+model Account {
+  id                String   @id @default(cuid())
+  provider          String // "google" | "github"
+  providerAccountId String // the user's id at that provider
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// Long-lived session token. Only its SHA-256 hash is stored.
+/// All tokens descended from one login share a familyId; reuse of a rotated
+/// token revokes the whole family.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  familyId  String
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime? // set when rotated; presenting it again = theft signal
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([familyId])
+  @@index([userId])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  memberships Membership[]
+  documents   Document[]
+}
+
+/// A user's role in a workspace. Applies to every document in it.
+model Membership {
+  userId      String
+  workspaceId String
+  role        Role
+  createdAt   DateTime  @default(now())
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+/// A page. Pages nest via parentId to form a tree.
+model Document {
+  id          String     @id @default(cuid())
+  title       String     @default("Untitled")
+  workspaceId String
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      Document?  @relation("DocumentTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Document[] @relation("DocumentTree")
+  createdById String
+  createdBy   User       @relation("DocumentCreator", fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  permissions DocumentPermission[]
+
+  @@index([workspaceId, parentId])
+}
+
+/// Per-document grant that can RAISE a user's role on one document.
+/// Effective role = max(workspace role, this role).
+model DocumentPermission {
+  documentId String
+  userId     String
+  role       Role
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([documentId, userId])
+  @@index([userId])
 }
