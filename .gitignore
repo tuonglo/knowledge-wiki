@@ -15,4 +15,4 @@ __pycache__/
 .ruff_cache/
 
 # prisma generated client
-src/generated/
+**/src/generated/
