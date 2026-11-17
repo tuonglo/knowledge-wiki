@@ -14,9 +14,9 @@ jobs:
     name: TypeScript (web, api, shared)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4 # version comes from package.json "packageManager"
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6 # version comes from package.json "packageManager"
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
@@ -33,8 +33,8 @@ jobs:
       run:
         working-directory: services/ai
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
         with:
           enable-cache: true
       - run: uv sync --locked
@@ -47,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [typescript, python]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker compose --profile app up -d --build --wait
       - name: Health checks
         run: |
