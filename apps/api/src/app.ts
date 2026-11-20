@@ -3,6 +3,7 @@ import cors from "cors";
 import express, { type ErrorRequestHandler, type Express, type Router } from "express";
 import helmet from "helmet";
 import type { HealthResponse } from "@kw/shared";
+import { HttpError } from "./http.js";
 
 /** A named dependency probe. Resolves if healthy, rejects otherwise. */
 export type HealthCheck = () => Promise<unknown>;
@@ -51,8 +52,14 @@ export function createApp({ webOrigin, checks, routes = {} }: AppDeps): Express 
   // Last: anything a route threw. Log the details here; send the client nothing internal
   // (stack traces leak file paths and library versions).
   const onError: ErrorRequestHandler = (err, _req, res, _next) => {
-    console.error(err);
     if (res.headersSent) return;
+    // Expected errors thrown on purpose by routes (403, 404, 409...): send as-is.
+    if (err instanceof HttpError) {
+      return void res.status(err.status).json({ error: err.code, ...(err.details ? { details: err.details } : {}) });
+    }
+    // Malformed JSON body from express.json().
+    if (err?.type === "entity.parse.failed") return void res.status(400).json({ error: "invalid_json" });
+    console.error(err);
     res.status(500).json({ error: "internal_error" });
   };
   app.use(onError);

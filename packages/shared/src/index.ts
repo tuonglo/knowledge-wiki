@@ -36,6 +36,34 @@ export const HealthResponse = z.object({
 });
 export type HealthResponse = z.infer<typeof HealthResponse>;
 
+// ---- API request bodies (validated by the API, reusable by web forms) ----
+
+export const CreateWorkspaceBody = z.object({
+  name: z.string().trim().min(1).max(100),
+});
+export type CreateWorkspaceBody = z.infer<typeof CreateWorkspaceBody>;
+
+export const AddMemberBody = z.object({
+  email: z.email().transform((e) => e.toLowerCase()),
+  role: Role.default("VIEWER"),
+});
+export type AddMemberBody = z.infer<typeof AddMemberBody>;
+
+export const UpdateMemberBody = z.object({ role: Role });
+export type UpdateMemberBody = z.infer<typeof UpdateMemberBody>;
+
+export const CreateDocumentBody = z.object({
+  title: z.string().trim().min(1).max(200).default("Untitled"),
+  /** Create as a sub-page of this document (same workspace). Omit for a top-level page. */
+  parentId: z.string().min(1).optional(),
+});
+export type CreateDocumentBody = z.infer<typeof CreateDocumentBody>;
+
+export const UpdateDocumentBody = z.object({
+  title: z.string().trim().min(1).max(200),
+});
+export type UpdateDocumentBody = z.infer<typeof UpdateDocumentBody>;
+
 /** Payload published to the `doc.saved` Redis Stream (consumed by the Python indexer). */
 export const DocSavedEvent = z.object({
   documentId: z.string(),

@@ -6,7 +6,9 @@ import { createGitHubProvider, createGoogleProvider, type OAuthProvider } from "
 import { createAuthRouter } from "./auth/routes.js";
 import { env } from "./env.js";
 import { PrismaClient } from "./generated/prisma/client.js";
+import { createDocumentsRouter } from "./routes/documents.js";
 import { createMeRouter } from "./routes/me.js";
+import { createWorkspacesRouter } from "./routes/workspaces.js";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: env.DATABASE_URL }),
@@ -55,6 +57,8 @@ const app = createApp({
       secureCookies: env.API_URL.startsWith("https://"),
     }),
     "/me": createMeRouter({ prisma, tokens }),
+    "/workspaces": createWorkspacesRouter({ prisma, tokens }),
+    "/documents": createDocumentsRouter({ prisma, tokens }),
   },
 });
 
