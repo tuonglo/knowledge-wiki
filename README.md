@@ -37,6 +37,9 @@ Login needs a GitHub and a Google OAuth app. Put their values in `.env`.
 
 ## Checks
 
+API tests run against a real Postgres (a separate `kw_test` database, created automatically),
+so start it first with `pnpm db:up`.
+
 ```bash
 pnpm lint && pnpm typecheck && pnpm test
 cd services/ai && uv run ruff check . && uv run pytest

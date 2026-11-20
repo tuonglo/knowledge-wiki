@@ -13,6 +13,19 @@ jobs:
   typescript:
     name: TypeScript (web, api, shared)
     runs-on: ubuntu-latest
+    # API integration tests need a real Postgres. Tests create/migrate `kw_test` themselves.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: kw
+          POSTGRES_PASSWORD: kw
+          POSTGRES_DB: kw
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kw" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://kw:kw@localhost:5432/kw
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6 # version comes from package.json "packageManager"
