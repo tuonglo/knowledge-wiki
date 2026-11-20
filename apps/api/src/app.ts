@@ -1,5 +1,6 @@
+import cookieParser from "cookie-parser";
 import cors from "cors";
-import express, { type Express } from "express";
+import express, { type Express, type Router } from "express";
 import helmet from "helmet";
 import type { HealthResponse } from "@kw/shared";
 
@@ -9,13 +10,18 @@ export type HealthCheck = () => Promise<unknown>;
 export interface AppDeps {
   webOrigin: string;
   checks: Record<string, HealthCheck>;
+  /** Mounted at /auth. Optional so health-only tests don't need a database. */
+  authRouter?: Router;
 }
 
-export function createApp({ webOrigin, checks }: AppDeps): Express {
+export function createApp({ webOrigin, checks, authRouter }: AppDeps): Express {
   const app = express();
   app.use(helmet());
   app.use(cors({ origin: webOrigin, credentials: true }));
   app.use(express.json());
+  app.use(cookieParser());
+
+  if (authRouter) app.use("/auth", authRouter);
 
   app.get("/health", async (_req, res) => {
     const entries = await Promise.all(
