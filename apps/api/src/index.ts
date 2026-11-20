@@ -6,6 +6,7 @@ import { createGitHubProvider, createGoogleProvider, type OAuthProvider } from "
 import { createAuthRouter } from "./auth/routes.js";
 import { env } from "./env.js";
 import { PrismaClient } from "./generated/prisma/client.js";
+import { createMeRouter } from "./routes/me.js";
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: env.DATABASE_URL }),
@@ -43,15 +44,18 @@ const app = createApp({
     postgres: () => prisma.$queryRaw`SELECT 1`,
     redis: () => redis.ping(),
   },
-  authRouter: createAuthRouter({
-    prisma,
-    tokens,
-    providers,
-    webOrigin: env.WEB_ORIGIN,
-    // `secure` cookies need HTTPS. Decide from the real URL, not NODE_ENV:
-    // the Docker image runs NODE_ENV=production on plain http://localhost.
-    secureCookies: env.API_URL.startsWith("https://"),
-  }),
+  routes: {
+    "/auth": createAuthRouter({
+      prisma,
+      tokens,
+      providers,
+      webOrigin: env.WEB_ORIGIN,
+      // `secure` cookies need HTTPS. Decide from the real URL, not NODE_ENV:
+      // the Docker image runs NODE_ENV=production on plain http://localhost.
+      secureCookies: env.API_URL.startsWith("https://"),
+    }),
+    "/me": createMeRouter({ prisma, tokens }),
+  },
 });
 
 const server = app.listen(env.API_PORT, () => {

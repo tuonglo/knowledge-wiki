@@ -1,10 +1,10 @@
-import { generateKeyPairSync } from "node:crypto";
 import type { Express } from "express";
 import request from "supertest";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
 import { createTestPrisma, resetDb } from "../test/db.js";
-import { createTokenService, type TokenService } from "./jwt.js";
+import { createTestTokens } from "../test/tokens.js";
+import type { TokenService } from "./jwt.js";
 import type { OAuthProfile, OAuthProvider } from "./providers.js";
 import { createAuthRouter, REFRESH_COOKIE } from "./routes.js";
 import { hashToken, startSession } from "./sessions.js";
@@ -14,12 +14,7 @@ afterAll(() => prisma.$disconnect());
 
 let tokens: TokenService;
 beforeAll(async () => {
-  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
-    modulusLength: 2048,
-    privateKeyEncoding: { type: "pkcs8", format: "pem" },
-    publicKeyEncoding: { type: "spki", format: "pem" },
-  });
-  tokens = await createTokenService({ privateKeyPem: privateKey, publicKeyPem: publicKey });
+  tokens = await createTestTokens();
 });
 
 const WEB = "http://web.test";
@@ -45,7 +40,9 @@ function makeApp(provider = fakeProvider()): Express {
   return createApp({
     webOrigin: WEB,
     checks: {},
-    authRouter: createAuthRouter({ prisma, tokens, providers: [provider], webOrigin: WEB, secureCookies: false }),
+    routes: {
+      "/auth": createAuthRouter({ prisma, tokens, providers: [provider], webOrigin: WEB, secureCookies: false }),
+    },
   });
 }
 
