@@ -10,6 +10,25 @@ export function roleAtLeast(actual: Role, required: Role): boolean {
   return roleRank[actual] >= roleRank[required];
 }
 
+/** Things a user can do to a document. */
+export const DocumentAction = z.enum(["view", "edit", "manage"]);
+export type DocumentAction = z.infer<typeof DocumentAction>;
+
+/**
+ * Minimum role for each action. The API enforces this; the web app uses the same
+ * table only to hide buttons (hiding is UX, never security).
+ */
+export const MIN_ROLE_FOR: Record<DocumentAction, Role> = {
+  view: "VIEWER",
+  edit: "EDITOR",
+  manage: "OWNER", // delete, share
+};
+
+/** `role` may be null (no access at all). */
+export function roleAllows(role: Role | null, action: DocumentAction): boolean {
+  return role !== null && roleAtLeast(role, MIN_ROLE_FOR[action]);
+}
+
 export const HealthResponse = z.object({
   service: z.string(),
   status: z.enum(["ok", "degraded"]),

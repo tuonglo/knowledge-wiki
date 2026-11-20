@@ -102,6 +102,7 @@ model Document {
   permissions DocumentPermission[]
 
   @@index([workspaceId, parentId])
+  @@index([parentId]) // permission checks walk the tree child-by-parent
 }
 
 /// Per-document grant that can RAISE a user's role on one document.
