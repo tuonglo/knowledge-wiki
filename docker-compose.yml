@@ -33,11 +33,26 @@ services:
 
   # App services run under the "app" profile: `docker compose --profile app up`.
   # For day-to-day dev, run only postgres+redis in Docker and the apps on the host.
+  # Applies database migrations, then exits. The api waits for it to succeed, so a
+  # fresh database gets its tables before any request arrives, and a failed
+  # migration stops the stack instead of serving traffic against the wrong schema.
+  migrate:
+    profiles: ["app"]
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kw}:${POSTGRES_PASSWORD:-kw}@postgres:5432/${POSTGRES_DB:-kw}
+    depends_on:
+      postgres: { condition: service_healthy }
+
   api:
     profiles: ["app"]
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      target: runtime
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-kw}:${POSTGRES_PASSWORD:-kw}@postgres:5432/${POSTGRES_DB:-kw}
       REDIS_URL: redis://redis:6379
@@ -57,6 +72,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
 
   ai:
     profiles: ["app"]

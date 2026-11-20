@@ -18,7 +18,16 @@ RUN pnpm --filter @kw/api build \
  && pnpm --filter @kw/api deploy --prod --legacy --ignore-scripts /out \
  && cp -r apps/api/dist /out/dist
 
-FROM node:24-slim
+# One-shot migration job (`target: migrate` in docker-compose.yml). Reuses the build
+# stage, which already has the Prisma CLI and the migration files; applies pending
+# migrations and exits. Kept out of the runtime image so that stays small.
+FROM build AS migrate
+WORKDIR /repo/apps/api
+USER node
+CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]
+
+# Runtime image (the default target, because it's last).
+FROM node:24-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=build /out .
