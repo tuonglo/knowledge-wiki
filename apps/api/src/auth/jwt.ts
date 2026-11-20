@@ -16,8 +16,8 @@ export interface TokenServiceOptions {
   publicKeyPem: string;
   issuer?: string;
   audience?: string;
-  /** Access token lifetime, in jose's format ("15m", "1h", ...). */
-  accessTokenTtl?: string;
+  /** Access token lifetime in seconds. */
+  accessTokenTtlSeconds?: number;
 }
 
 export interface AccessTokenClaims {
@@ -32,7 +32,7 @@ export async function createTokenService({
   publicKeyPem,
   issuer = "kw-api",
   audience = "kw",
-  accessTokenTtl = "15m",
+  accessTokenTtlSeconds = 15 * 60,
 }: TokenServiceOptions) {
   const privateKey = await importPKCS8(privateKeyPem, ALG);
   const publicKey = await importSPKI(publicKeyPem, ALG, { extractable: true });
@@ -44,6 +44,7 @@ export async function createTokenService({
 
   return {
     kid,
+    accessTokenTtlSeconds,
 
     /** Public key in JWK format, for a future /.well-known/jwks.json endpoint. */
     publicJwk: { ...publicJwk, kid, alg: ALG, use: "sig" },
@@ -55,7 +56,7 @@ export async function createTokenService({
         .setIssuer(issuer)
         .setAudience(audience)
         .setIssuedAt()
-        .setExpirationTime(accessTokenTtl)
+        .setExpirationTime(`${accessTokenTtlSeconds}s`)
         .sign(privateKey);
     },
 

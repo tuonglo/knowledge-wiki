@@ -1,14 +1,26 @@
+import { generateKeyPairSync } from "node:crypto";
 import type { Express } from "express";
 import request from "supertest";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../app.js";
 import { createTestPrisma, resetDb } from "../test/db.js";
+import { createTokenService, type TokenService } from "./jwt.js";
 import type { OAuthProfile, OAuthProvider } from "./providers.js";
 import { createAuthRouter, REFRESH_COOKIE } from "./routes.js";
-import { hashToken } from "./sessions.js";
+import { hashToken, startSession } from "./sessions.js";
 
 const prisma = createTestPrisma();
 afterAll(() => prisma.$disconnect());
+
+let tokens: TokenService;
+beforeAll(async () => {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+    publicKeyEncoding: { type: "spki", format: "pem" },
+  });
+  tokens = await createTokenService({ privateKeyPem: privateKey, publicKeyPem: publicKey });
+});
 
 const WEB = "http://web.test";
 
@@ -33,7 +45,7 @@ function makeApp(provider = fakeProvider()): Express {
   return createApp({
     webOrigin: WEB,
     checks: {},
-    authRouter: createAuthRouter({ prisma, providers: [provider], webOrigin: WEB, secureCookies: false }),
+    authRouter: createAuthRouter({ prisma, tokens, providers: [provider], webOrigin: WEB, secureCookies: false }),
   });
 }
 
@@ -139,5 +151,67 @@ describe("GET /auth/:provider/callback", () => {
 
     const replay = await agent.get(`/auth/github/callback?code=abc&state=${state}`);
     expect(replay.status).toBe(400);
+  });
+});
+
+describe("POST /auth/refresh", () => {
+  /** A logged-in user: a session in the DB and its raw cookie value. */
+  async function loggedIn() {
+    const user = await prisma.user.create({ data: { email: "ann@example.com" } });
+    const session = await startSession(prisma, user.id);
+    return { user, cookie: `${REFRESH_COOKIE}=${session.token}` };
+  }
+
+  it("returns a valid access token for the session's user and rotates the cookie", async () => {
+    const { user, cookie } = await loggedIn();
+
+    const res = await request(makeApp()).post("/auth/refresh").set("Cookie", cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.expiresIn).toBe(15 * 60);
+    await expect(tokens.verifyAccessToken(res.body.accessToken)).resolves.toEqual({ userId: user.id });
+
+    const rotated = cookiesOf(res)[REFRESH_COOKIE];
+    expect(rotated?.value).toBeTruthy();
+    expect(`${REFRESH_COOKIE}=${rotated!.value}`).not.toBe(cookie);
+  });
+
+  it("401s without a cookie", async () => {
+    const res = await request(makeApp()).post("/auth/refresh");
+    expect(res.status).toBe(401);
+  });
+
+  it("401s on a replayed cookie, clears it, and kills the rotated one too", async () => {
+    const { cookie } = await loggedIn();
+    const app = makeApp();
+    const first = await request(app).post("/auth/refresh").set("Cookie", cookie);
+    const newCookie = `${REFRESH_COOKIE}=${cookiesOf(first)[REFRESH_COOKIE]!.value}`;
+
+    const replay = await request(app).post("/auth/refresh").set("Cookie", cookie);
+    expect(replay.status).toBe(401);
+    expect(cookiesOf(replay)[REFRESH_COOKIE]?.value).toBe(""); // cleared
+
+    const afterReuse = await request(app).post("/auth/refresh").set("Cookie", newCookie);
+    expect(afterReuse.status).toBe(401);
+  });
+});
+
+describe("POST /auth/logout", () => {
+  it("ends the session: the cookie is cleared and can't be refreshed anymore", async () => {
+    const user = await prisma.user.create({ data: { email: "ann@example.com" } });
+    const cookie = `${REFRESH_COOKIE}=${(await startSession(prisma, user.id)).token}`;
+    const app = makeApp();
+
+    const out = await request(app).post("/auth/logout").set("Cookie", cookie);
+    expect(out.status).toBe(204);
+    expect(cookiesOf(out)[REFRESH_COOKIE]?.value).toBe("");
+
+    const res = await request(app).post("/auth/refresh").set("Cookie", cookie);
+    expect(res.status).toBe(401);
+  });
+
+  it("succeeds even when not logged in", async () => {
+    const res = await request(makeApp()).post("/auth/logout");
+    expect(res.status).toBe(204);
   });
 });

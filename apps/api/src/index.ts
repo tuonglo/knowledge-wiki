@@ -1,6 +1,7 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Redis } from "ioredis";
 import { createApp } from "./app.js";
+import { createTokenService } from "./auth/jwt.js";
 import { createGitHubProvider, createGoogleProvider, type OAuthProvider } from "./auth/providers.js";
 import { createAuthRouter } from "./auth/routes.js";
 import { env } from "./env.js";
@@ -10,6 +11,10 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: env.DATABASE_URL }),
 });
 const redis = new Redis(env.REDIS_URL, { lazyConnect: false, maxRetriesPerRequest: 1 });
+const tokens = await createTokenService({
+  privateKeyPem: env.JWT_PRIVATE_KEY,
+  publicKeyPem: env.JWT_PUBLIC_KEY,
+});
 
 // Enable each login provider only if its credentials are configured.
 const providers: OAuthProvider[] = [];
@@ -40,6 +45,7 @@ const app = createApp({
   },
   authRouter: createAuthRouter({
     prisma,
+    tokens,
     providers,
     webOrigin: env.WEB_ORIGIN,
     // `secure` cookies need HTTPS. Decide from the real URL, not NODE_ENV:

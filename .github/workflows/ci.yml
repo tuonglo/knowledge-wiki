@@ -61,6 +61,14 @@ jobs:
     needs: [typescript, python]
     steps:
       - uses: actions/checkout@v7
+      # The API won't start without signing keys. Make throwaway ones for this run;
+      # Compose reads .env automatically. (OAuth stays unconfigured → providers disabled.)
+      - name: Generate throwaway JWT keys
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out "$RUNNER_TEMP/jwt.pem"
+          openssl pkey -in "$RUNNER_TEMP/jwt.pem" -pubout -out "$RUNNER_TEMP/jwt.pub"
+          echo "JWT_PRIVATE_KEY=$(base64 -w0 "$RUNNER_TEMP/jwt.pem")" >> .env
+          echo "JWT_PUBLIC_KEY=$(base64 -w0 "$RUNNER_TEMP/jwt.pub")" >> .env
       - run: docker compose --profile app up -d --build --wait
       - name: Health checks
         run: |

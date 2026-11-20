@@ -1,8 +1,17 @@
 import { generateCodeVerifier, generateState } from "arctic";
-import { type CookieOptions, Router } from "express";
+import { type CookieOptions, type Response, Router } from "express";
 import type { PrismaClient } from "../generated/prisma/client.js";
+import type { TokenService } from "./jwt.js";
 import type { OAuthProvider } from "./providers.js";
-import { REFRESH_TOKEN_TTL_MS, startSession } from "./sessions.js";
+import {
+  endSession,
+  InvalidSessionError,
+  REFRESH_TOKEN_TTL_MS,
+  rotateSession,
+  type Session,
+  startSession,
+  TokenReuseError,
+} from "./sessions.js";
 import { findOrCreateUser, UnverifiedEmailError } from "./users.js";
 
 export const REFRESH_COOKIE = "kw_refresh";
@@ -12,6 +21,7 @@ const OAUTH_COOKIE_TTL_MS = 10 * 60 * 1000; // the user has 10 minutes to finish
 
 export interface AuthRouterDeps {
   prisma: PrismaClient;
+  tokens: TokenService;
   /** Only configured providers are listed; others 404. */
   providers: OAuthProvider[];
   /** Where to send the browser after login, e.g. http://localhost:3000 */
@@ -20,7 +30,7 @@ export interface AuthRouterDeps {
   secureCookies: boolean;
 }
 
-export function createAuthRouter({ prisma, providers, webOrigin, secureCookies }: AuthRouterDeps): Router {
+export function createAuthRouter({ prisma, tokens, providers, webOrigin, secureCookies }: AuthRouterDeps): Router {
   const router = Router();
   const byName = new Map(providers.map((p) => [p.name, p]));
 
@@ -30,6 +40,42 @@ export function createAuthRouter({ prisma, providers, webOrigin, secureCookies }
     sameSite: "lax", // sent on top-level redirects back from GitHub/Google, not on cross-site background requests
     path: "/auth", // only sent to /auth/*, not every API call
   };
+
+  const setRefreshCookie = (res: Response, session: Session) =>
+    res.cookie(REFRESH_COOKIE, session.token, { ...cookieBase, maxAge: REFRESH_TOKEN_TTL_MS });
+
+  // ---- session endpoints (called by the web app with `credentials: "include"`) ----
+  // Declared before /:provider so "refresh"/"logout" aren't mistaken for provider names.
+
+  // Exchange the refresh cookie for a short-lived access token + a rotated cookie.
+  router.post("/refresh", async (req, res) => {
+    const raw: unknown = req.cookies?.[REFRESH_COOKIE];
+    if (typeof raw !== "string") return void res.status(401).json({ error: "no_session" });
+
+    try {
+      const session = await rotateSession(prisma, raw);
+      setRefreshCookie(res, session);
+      const accessToken = await tokens.signAccessToken({ userId: session.userId });
+      res.json({ accessToken, expiresIn: tokens.accessTokenTtlSeconds });
+    } catch (err) {
+      if (!(err instanceof InvalidSessionError)) throw err;
+      if (err instanceof TokenReuseError) {
+        // Worth alerting on in production: it means a refresh token leaked.
+        console.warn(`refresh token reuse detected, revoked family ${err.familyId}`);
+      }
+      res.clearCookie(REFRESH_COOKIE, cookieBase);
+      res.status(401).json({ error: "invalid_session" });
+    }
+  });
+
+  router.post("/logout", async (req, res) => {
+    const raw: unknown = req.cookies?.[REFRESH_COOKIE];
+    if (typeof raw === "string") await endSession(prisma, raw);
+    res.clearCookie(REFRESH_COOKIE, cookieBase);
+    res.status(204).end();
+  });
+
+  // ---- OAuth login ----
 
   /** Send the browser back to the web app, optionally with an error code it can show. */
   const backToWeb = (error?: string) => {
@@ -81,8 +127,7 @@ export function createAuthRouter({ prisma, providers, webOrigin, secureCookies }
     try {
       const profile = await provider.fetchProfile(code, codeVerifier);
       const user = await findOrCreateUser(prisma, profile);
-      const session = await startSession(prisma, user.id);
-      res.cookie(REFRESH_COOKIE, session.token, { ...cookieBase, maxAge: REFRESH_TOKEN_TTL_MS });
+      setRefreshCookie(res, await startSession(prisma, user.id));
       return res.redirect(backToWeb());
     } catch (err) {
       if (err instanceof UnverifiedEmailError) return res.redirect(backToWeb("unverified_email"));
