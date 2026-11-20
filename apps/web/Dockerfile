@@ -12,9 +12,10 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
     pnpm install --frozen-lockfile --filter @kw/web...
 COPY packages/shared packages/shared
 COPY apps/web apps/web
-# NEXT_PUBLIC_* values are inlined into the client bundle at build time.
-ARG NEXT_PUBLIC_API_URL=http://localhost:4000
-ARG NEXT_PUBLIC_AI_URL=http://localhost:8000
+# Where the Next.js server forwards /api and /ai (see next.config.ts rewrites).
+# Rewrites are fixed at build time, so these are build args. Defaults = compose service names.
+ARG API_INTERNAL_URL=http://api:4000
+ARG AI_INTERNAL_URL=http://ai:8000
 RUN pnpm --filter @kw/web build
 
 FROM node:24-slim

@@ -28,9 +28,21 @@ export interface AuthRouterDeps {
   webOrigin: string;
   /** true in production (HTTPS). Browsers drop `secure` cookies on plain http://localhost. */
   secureCookies: boolean;
+  /**
+   * Path the browser sees for these routes. "/auth" when called directly; "/api/auth"
+   * when the web app proxies the API under /api. Cookies are scoped to it.
+   */
+  cookiePath?: string;
 }
 
-export function createAuthRouter({ prisma, tokens, providers, webOrigin, secureCookies }: AuthRouterDeps): Router {
+export function createAuthRouter({
+  prisma,
+  tokens,
+  providers,
+  webOrigin,
+  secureCookies,
+  cookiePath = "/auth",
+}: AuthRouterDeps): Router {
   const router = Router();
   const byName = new Map(providers.map((p) => [p.name, p]));
 
@@ -38,7 +50,7 @@ export function createAuthRouter({ prisma, tokens, providers, webOrigin, secureC
     httpOnly: true, // JS can't read it → XSS can't steal it
     secure: secureCookies,
     sameSite: "lax", // sent on top-level redirects back from GitHub/Google, not on cross-site background requests
-    path: "/auth", // only sent to /auth/*, not every API call
+    path: cookiePath, // only sent to the auth routes, not every API call
   };
 
   const setRefreshCookie = (res: Response, session: Session) =>
@@ -79,8 +91,9 @@ export function createAuthRouter({ prisma, tokens, providers, webOrigin, secureC
 
   /** Send the browser back to the web app, optionally with an error code it can show. */
   const backToWeb = (error?: string) => {
-    const url = new URL("/", webOrigin);
-    if (error) url.searchParams.set("login_error", error);
+    if (!error) return new URL("/", webOrigin).toString();
+    const url = new URL("/login", webOrigin); // the login page explains what went wrong
+    url.searchParams.set("error", error);
     return url.toString();
   };
 

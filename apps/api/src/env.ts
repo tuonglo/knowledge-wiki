@@ -19,7 +19,8 @@ const Env = z.object({
   DATABASE_URL: z.string().default("postgresql://kw:kw@localhost:5432/kw"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
   API_PORT: z.coerce.number().int().default(4000),
-  API_URL: z.url().default("http://localhost:4000"),
+  /** The API's address AS THE BROWSER SEES IT (behind the web app's /api proxy). */
+  API_URL: z.url().default("http://localhost:3000/api"),
   WEB_ORIGIN: z.url().default("http://localhost:3000"),
 
   // Access-token signing keys: base64-encoded PEM (see `pnpm --filter @kw/api gen:keys`).

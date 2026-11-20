@@ -127,7 +127,7 @@ describe("GET /auth/:provider/callback", () => {
     const agent = request.agent(makeApp());
     await startLogin(agent);
     const res = await agent.get("/auth/github/callback?error=access_denied");
-    expect(res.headers.location).toBe(`${WEB}/?login_error=cancelled`);
+    expect(res.headers.location).toBe(`${WEB}/login?error=cancelled`);
   });
 
   it("refuses accounts without a verified email", async () => {
@@ -136,7 +136,7 @@ describe("GET /auth/:provider/callback", () => {
 
     const res = await agent.get(`/auth/github/callback?code=abc&state=${state}`);
 
-    expect(res.headers.location).toBe(`${WEB}/?login_error=unverified_email`);
+    expect(res.headers.location).toBe(`${WEB}/login?error=unverified_email`);
     expect(cookiesOf(res)[REFRESH_COOKIE]).toBeUndefined();
     expect(await prisma.user.count()).toBe(0);
   });
@@ -210,5 +210,26 @@ describe("POST /auth/logout", () => {
   it("succeeds even when not logged in", async () => {
     const res = await request(makeApp()).post("/auth/logout");
     expect(res.status).toBe(204);
+  });
+});
+
+describe("cookie path behind a proxy", () => {
+  it("scopes cookies to the configured path (e.g. /api/auth when proxied under /api)", async () => {
+    const proxied = createApp({
+      webOrigin: WEB,
+      checks: {},
+      routes: {
+        "/auth": createAuthRouter({
+          prisma,
+          tokens,
+          providers: [fakeProvider()],
+          webOrigin: WEB,
+          secureCookies: false,
+          cookiePath: "/api/auth",
+        }),
+      },
+    });
+    const res = await request(proxied).get("/auth/github");
+    expect(cookiesOf(res).kw_oauth_state?.attrs).toMatch(/Path=\/api\/auth/);
   });
 });

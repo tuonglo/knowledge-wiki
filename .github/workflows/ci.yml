@@ -72,7 +72,8 @@ jobs:
       - run: docker compose --profile app up -d --build --wait
       - name: Health checks
         run: |
-          for url in localhost:4000/health localhost:8000/health localhost:3000; do
+          # Directly, and through the web app's /api and /ai proxies (what browsers use).
+          for url in localhost:4000/health localhost:8000/health localhost:3000 localhost:3000/api/health localhost:3000/ai/health; do
             curl -fsS --retry 10 --retry-connrefused --retry-delay 2 "http://$url" && echo
           done
       # /health only proves the DB is reachable. Prove the schema is there too:
@@ -80,7 +81,7 @@ jobs:
       - name: Migrations applied
         run: docker compose exec -T postgres psql -U kw -d kw -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM "User"' -c 'SELECT * FROM kw_document_roles($$nobody$$)'
       - name: Protected routes reject anonymous requests
-        run: test "$(curl -s -o /dev/null -w '%{http_code}' localhost:4000/me)" = 401
+        run: test "$(curl -s -o /dev/null -w '%{http_code}' localhost:3000/api/me)" = 401
       - if: failure()
         run: docker compose --profile app logs
       - if: always()

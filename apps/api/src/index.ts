@@ -55,6 +55,9 @@ const app = createApp({
       // `secure` cookies need HTTPS. Decide from the real URL, not NODE_ENV:
       // the Docker image runs NODE_ENV=production on plain http://localhost.
       secureCookies: env.API_URL.startsWith("https://"),
+      // API_URL is the address the BROWSER uses, e.g. http://localhost:3000/api when the
+      // web app proxies us under /api → cookies must be scoped to /api/auth.
+      cookiePath: `${new URL(env.API_URL).pathname.replace(/\/$/, "")}/auth`,
     }),
     "/me": createMeRouter({ prisma, tokens }),
     "/workspaces": createWorkspacesRouter({ prisma, tokens }),

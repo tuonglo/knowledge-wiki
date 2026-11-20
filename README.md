@@ -32,9 +32,9 @@ cd services/ai && uv sync && uv run kw-ai   # ai :8000
 Login needs a GitHub and a Google OAuth app. Put their values in `.env`.
 
 - **GitHub:** Settings → Developer settings → OAuth Apps → New.
-  Callback URL: `http://localhost:4000/auth/github/callback`
+  Callback URL: `http://localhost:3000/api/auth/github/callback`
 - **Google:** Cloud Console → Google Auth Platform → Clients → Create client (Web application).
-  Redirect URI: `http://localhost:4000/auth/google/callback`. While the app is in Testing mode,
+  Redirect URI: `http://localhost:3000/api/auth/google/callback`. While the app is in Testing mode,
   add your account under Audience → Test users.
 
 ## Auth

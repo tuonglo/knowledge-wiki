@@ -36,6 +36,23 @@ export const HealthResponse = z.object({
 });
 export type HealthResponse = z.infer<typeof HealthResponse>;
 
+// ---- API responses (the web app validates what it receives) ----
+
+export const RefreshResponse = z.object({
+  accessToken: z.string(),
+  /** Seconds until the access token expires. */
+  expiresIn: z.number().int().positive(),
+});
+export type RefreshResponse = z.infer<typeof RefreshResponse>;
+
+export const Me = z.object({
+  id: z.string(),
+  email: z.string(),
+  name: z.string().nullable(),
+  avatarUrl: z.string().nullable(),
+});
+export type Me = z.infer<typeof Me>;
+
 // ---- API request bodies (validated by the API, reusable by web forms) ----
 
 export const CreateWorkspaceBody = z.object({
