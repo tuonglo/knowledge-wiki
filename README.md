@@ -25,6 +25,16 @@ pnpm dev                         # web :3000, api :4000
 cd services/ai && uv sync && uv run kw-ai   # ai :8000
 ```
 
+## OAuth setup
+
+Login needs a GitHub and a Google OAuth app. Put their values in `.env`.
+
+- **GitHub:** Settings → Developer settings → OAuth Apps → New.
+  Callback URL: `http://localhost:4000/auth/github/callback`
+- **Google:** Cloud Console → Google Auth Platform → Clients → Create client (Web application).
+  Redirect URI: `http://localhost:4000/auth/google/callback`. While the app is in Testing mode,
+  add your account under Audience → Test users.
+
 ## Checks
 
 ```bash
