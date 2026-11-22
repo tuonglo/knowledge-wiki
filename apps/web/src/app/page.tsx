@@ -2,51 +2,37 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useAuth } from "@/lib/auth";
+import { Centered } from "@/components/centered";
+import { CreateWorkspaceForm } from "@/components/create-workspace-form";
+import { RequireAuth } from "@/components/require-auth";
+import { pickWorkspace, useWorkspaces } from "@/lib/workspaces";
 
-/** Home. Logged out → /login. Logged in → (for now) who you are; Step 2 adds workspaces. */
+/** "/" only routes: to your last (or first) workspace, or to onboarding if you have none. */
 export default function Home() {
-  const { state, logout } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (state.status === "anonymous") router.replace("/login");
-  }, [state.status, router]);
-
-  if (state.status === "error") {
-    return <Centered>{state.message}</Centered>;
-  }
-  if (state.status !== "authenticated") {
-    return <Centered>Loading…</Centered>;
-  }
-
-  const { user } = state;
-  return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-16">
-      <div className="flex items-center gap-3">
-        {user.avatarUrl && (
-          // eslint-disable-next-line @next/next/no-img-element -- external avatar URLs, no optimization needed
-          <img src={user.avatarUrl} alt="" className="h-10 w-10 rounded-full" />
-        )}
-        <div>
-          <p className="font-medium">{user.name ?? user.email}</p>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{user.email}</p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={async () => {
-          await logout();
-          router.replace("/login");
-        }}
-        className="self-start rounded-lg border border-zinc-300 px-4 py-2 text-sm hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-900"
-      >
-        Log out
-      </button>
-    </main>
-  );
+  return <RequireAuth>{() => <PickWorkspace />}</RequireAuth>;
 }
 
-function Centered({ children }: { children: React.ReactNode }) {
-  return <main className="flex flex-1 items-center justify-center text-zinc-600 dark:text-zinc-400">{children}</main>;
+function PickWorkspace() {
+  const workspaces = useWorkspaces();
+  const router = useRouter();
+  const target = workspaces.data && pickWorkspace(workspaces.data);
+
+  useEffect(() => {
+    if (target) router.replace(`/w/${target.id}`);
+  }, [target, router]);
+
+  if (workspaces.isError) return <Centered>Couldn&apos;t load your workspaces. Try reloading.</Centered>;
+  if (!workspaces.data || target) return <Centered>Loading…</Centered>;
+
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-4 py-16">
+      <div>
+        <h1 className="text-2xl font-semibold">Create your first workspace</h1>
+        <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+          A workspace holds your pages and the people you share them with.
+        </p>
+      </div>
+      <CreateWorkspaceForm autoFocus />
+    </main>
+  );
 }

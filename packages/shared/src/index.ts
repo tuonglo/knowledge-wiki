@@ -53,6 +53,38 @@ export const Me = z.object({
 });
 export type Me = z.infer<typeof Me>;
 
+// ---- API responses (the web app validates what it receives) ----
+
+/** A workspace I'm a member of, with my role in it. Dates arrive as ISO strings in JSON. */
+export const Workspace = z.object({
+  id: z.string(),
+  name: z.string(),
+  createdAt: z.string(),
+  role: Role,
+});
+export type Workspace = z.infer<typeof Workspace>;
+
+/** One row of a workspace's page tree (GET /workspaces/:id/documents). */
+export const DocumentSummary = z.object({
+  id: z.string(),
+  title: z.string(),
+  parentId: z.string().nullable(),
+  role: Role,
+});
+export type DocumentSummary = z.infer<typeof DocumentSummary>;
+
+/** A single document (GET /documents/:id), with my role on it. */
+export const DocumentDetail = z.object({
+  id: z.string(),
+  title: z.string(),
+  parentId: z.string().nullable(),
+  workspaceId: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  role: Role,
+});
+export type DocumentDetail = z.infer<typeof DocumentDetail>;
+
 // ---- API request bodies (validated by the API, reusable by web forms) ----
 
 export const CreateWorkspaceBody = z.object({

@@ -1,6 +1,7 @@
 "use client";
 
 import { Me } from "@kw/shared";
+import { useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { apiFetch, logout as apiLogout, NotLoggedInError } from "./api";
 
@@ -38,10 +39,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const queryClient = useQueryClient();
   const logout = useCallback(async () => {
     await apiLogout();
+    // Drop every cached API response, so the next user on this tab never sees ours.
+    queryClient.clear();
     setState({ status: "anonymous" });
-  }, []);
+  }, [queryClient]);
 
   return <AuthContext.Provider value={{ state, logout }}>{children}</AuthContext.Provider>;
 }

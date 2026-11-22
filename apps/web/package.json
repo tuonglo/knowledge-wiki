@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@kw/shared": "workspace:*",
+    "@tanstack/react-query": "^5.108.2",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
