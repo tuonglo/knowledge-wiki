@@ -13,8 +13,14 @@ jobs:
   typescript:
     name: TypeScript (web, api, shared)
     runs-on: ubuntu-latest
-    # API integration tests need a real Postgres. Tests create/migrate `kw_test` themselves.
+    # API integration tests need a real Postgres (tests create/migrate `kw_test` themselves)
+    # and a real Redis (tests use logical db 15).
     services:
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
       postgres:
         image: pgvector/pgvector:pg16
         env:
@@ -26,6 +32,7 @@ jobs:
           --health-cmd "pg_isready -U kw" --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       DATABASE_URL: postgresql://kw:kw@localhost:5432/kw
+      REDIS_URL: redis://localhost:6379
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6 # version comes from package.json "packageManager"

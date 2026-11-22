@@ -84,13 +84,29 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 | `GET /workspaces/:id/documents`              | pages you can view           |
 | `POST /workspaces/:id/documents`             | EDITOR, or edit on parent    |
 | `GET`/`PATCH`/`DELETE /documents/:id`        | view / edit / manage         |
+| `GET /documents/:id/content`                 | view                         |
+| `PUT /documents/:id/content`                 | edit                         |
 
 A workspace always keeps at least one OWNER (`409 last_owner`).
 
+## Document content
+
+A page's content is stored three ways on the `Document` row:
+
+- `content`: the editor's **Yjs** state (binary CRDT). The server checks that it decodes before saving.
+- `markdown`: a plain-text copy for search and the AI indexer.
+- `version`: +1 per save.
+
+`PUT /documents/:id/content` takes `{ state (base64), markdown, baseVersion }` and saves only if
+`baseVersion` is still the stored version (one atomic `UPDATE … WHERE version = baseVersion`).
+Otherwise it returns `409 version_conflict` with `currentVersion`, so a stale tab can't overwrite
+newer work. Each save appends `{ documentId, workspaceId, version }` to the `doc.saved` Redis
+Stream for the indexer.
+
 ## Checks
 
-API tests run against a real Postgres (a separate `kw_test` database, created automatically),
-so start it first with `pnpm db:up`.
+API tests run against a real Postgres (a separate `kw_test` database, created automatically)
+and a real Redis (logical database 15), so start both first with `pnpm db:up`.
 
 ```bash
 pnpm lint && pnpm typecheck && pnpm test

@@ -5,6 +5,7 @@ import { createTokenService } from "./auth/jwt.js";
 import { createGitHubProvider, createGoogleProvider, type OAuthProvider } from "./auth/providers.js";
 import { createAuthRouter } from "./auth/routes.js";
 import { env } from "./env.js";
+import { createRedisDocEvents } from "./events.js";
 import { PrismaClient } from "./generated/prisma/client.js";
 import { createDocumentsRouter } from "./routes/documents.js";
 import { createMeRouter } from "./routes/me.js";
@@ -61,7 +62,7 @@ const app = createApp({
     }),
     "/me": createMeRouter({ prisma, tokens }),
     "/workspaces": createWorkspacesRouter({ prisma, tokens }),
-    "/documents": createDocumentsRouter({ prisma, tokens }),
+    "/documents": createDocumentsRouter({ prisma, tokens, events: createRedisDocEvents(redis) }),
   },
 });
 

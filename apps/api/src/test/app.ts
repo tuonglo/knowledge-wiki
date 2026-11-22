@@ -1,20 +1,21 @@
 import type { Express } from "express";
 import { createApp } from "../app.js";
 import type { TokenService } from "../auth/jwt.js";
+import { type DocEvents, noDocEvents } from "../events.js";
 import type { PrismaClient } from "../generated/prisma/client.js";
 import { createDocumentsRouter } from "../routes/documents.js";
 import { createMeRouter } from "../routes/me.js";
 import { createWorkspacesRouter } from "../routes/workspaces.js";
 
 /** The real app with every protected router, wired to the test DB and test keys. */
-export function createTestApp(prisma: PrismaClient, tokens: TokenService): Express {
+export function createTestApp(prisma: PrismaClient, tokens: TokenService, events: DocEvents = noDocEvents): Express {
   return createApp({
     webOrigin: "http://web.test",
     checks: {},
     routes: {
       "/me": createMeRouter({ prisma, tokens }),
       "/workspaces": createWorkspacesRouter({ prisma, tokens }),
-      "/documents": createDocumentsRouter({ prisma, tokens }),
+      "/documents": createDocumentsRouter({ prisma, tokens, events }),
     },
   });
 }

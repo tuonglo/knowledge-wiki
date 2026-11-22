@@ -113,6 +113,31 @@ export const UpdateDocumentBody = z.object({
 });
 export type UpdateDocumentBody = z.infer<typeof UpdateDocumentBody>;
 
+// ---- document content ----
+
+/** Size caps for one save. Base64 makes bytes ~4/3 bigger, so the JSON body limit sits above these. */
+export const MAX_STATE_BASE64_LENGTH = 4_000_000; // ≈ 3 MB of Yjs state
+export const MAX_MARKDOWN_LENGTH = 1_000_000;
+
+/** GET /documents/:id/content. `state` is the Yjs update, base64; null if never saved. */
+export const DocumentContent = z.object({
+  state: z.string().nullable(),
+  markdown: z.string(),
+  version: z.number().int().nonnegative(),
+});
+export type DocumentContent = z.infer<typeof DocumentContent>;
+
+/** PUT /documents/:id/content. `baseVersion` = the version this edit started from. */
+export const SaveContentBody = z.object({
+  state: z.base64().min(1).max(MAX_STATE_BASE64_LENGTH),
+  markdown: z.string().max(MAX_MARKDOWN_LENGTH),
+  baseVersion: z.number().int().nonnegative(),
+});
+export type SaveContentBody = z.infer<typeof SaveContentBody>;
+
+export const SaveContentResponse = z.object({ version: z.number().int().positive() });
+export type SaveContentResponse = z.infer<typeof SaveContentResponse>;
+
 /** Payload published to the `doc.saved` Redis Stream (consumed by the Python indexer). */
 export const DocSavedEvent = z.object({
   documentId: z.string(),

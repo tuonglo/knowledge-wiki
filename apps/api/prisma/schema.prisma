@@ -99,6 +99,14 @@ model Document {
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
 
+  /// The editor's real data: a Yjs update (CRDT, binary). Null until the first save.
+  content     Bytes?
+  /// Plain-text copy of `content` for search and the AI indexer, which can't read Yjs.
+  markdown    String     @default("")
+  /// +1 on every content save. Saves must name the version they started from (409 if stale),
+  /// and the indexer uses it to know which version it has embedded.
+  version     Int        @default(0)
+
   permissions DocumentPermission[]
 
   @@index([workspaceId, parentId])
