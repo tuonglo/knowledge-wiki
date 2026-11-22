@@ -1,12 +1,14 @@
 "use client";
 
+import { roleAllows } from "@kw/shared";
 import { useParams } from "next/navigation";
 import { Centered } from "@/components/centered";
+import { PageEditor } from "@/components/page-editor";
 import { PageTitle } from "@/components/page-title";
 import { ApiError } from "@/lib/api";
 import { useDocument } from "@/lib/documents";
 
-/** One page. Step 5 replaces the placeholder body with the editor. */
+/** One page: editable title + rich-text body (read-only for viewers). */
 export default function DocumentPage() {
   const { docId } = useParams<{ docId: string }>();
   const doc = useDocument(docId);
@@ -27,7 +29,12 @@ export default function DocumentPage() {
     <article className="mx-auto w-full max-w-3xl px-8 py-16">
       {/* key: start with a fresh draft when you navigate to a different page. */}
       <PageTitle key={doc.data.id} doc={doc.data} />
-      <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500">{doc.data.role.toLowerCase()}</p>
+      {!roleAllows(doc.data.role, "edit") && (
+        <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500">View only</p>
+      )}
+      <div className="mt-6">
+        <PageEditor docId={doc.data.id} editable={roleAllows(doc.data.role, "edit")} />
+      </div>
     </article>
   );
 }

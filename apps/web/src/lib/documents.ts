@@ -1,7 +1,13 @@
 "use client";
 
 /** Page (document) data hooks. */
-import { DocumentDetail, DocumentSummary } from "@kw/shared";
+import {
+  DocumentContent,
+  DocumentDetail,
+  DocumentSummary,
+  type SaveContentBody,
+  SaveContentResponse,
+} from "@kw/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { apiFetch } from "./api";
@@ -22,6 +28,26 @@ export function useDocument(id: string) {
     queryFn: () => apiFetch(`/documents/${encodeURIComponent(id)}`, {}, DocumentDetail),
   });
 }
+
+/**
+ * The page body, loaded ONCE per visit. After that the editor's Y.Doc is the source of
+ * truth, so: never stale, never refetch on focus, and drop it from the cache on leave.
+ */
+export function useDocumentContent(id: string) {
+  return useQuery({
+    queryKey: queryKeys.content(id),
+    queryFn: () => apiFetch(`/documents/${encodeURIComponent(id)}/content`, {}, DocumentContent),
+    staleTime: Infinity,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+  });
+}
+
+export const loadContent = (id: string) =>
+  apiFetch(`/documents/${encodeURIComponent(id)}/content`, {}, DocumentContent);
+
+export const saveContent = (id: string, body: SaveContentBody) =>
+  apiFetch(`/documents/${encodeURIComponent(id)}/content`, { method: "PUT", body }, SaveContentResponse);
 
 /** The fields POST returns. It has no `role`: the list refetch below fills that in. */
 const CreatedDocument = DocumentDetail.omit({ role: true });

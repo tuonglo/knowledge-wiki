@@ -24,3 +24,28 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ---- Page editor (Tiptap). Tailwind's reset removes heading/list styles, so restore them. ---- */
+.kw-editor {
+  @apply min-h-[50vh] text-base leading-7 outline-none;
+
+  & > * + * { @apply mt-3; }
+  & h1 { @apply mt-8 text-3xl font-bold; }
+  & h2 { @apply mt-6 text-2xl font-semibold; }
+  & h3 { @apply mt-5 text-xl font-semibold; }
+  & ul { @apply list-disc pl-6; }
+  & ol { @apply list-decimal pl-6; }
+  & li > p { @apply my-0; }
+  & blockquote { @apply border-l-4 border-zinc-300 pl-4 text-zinc-600 dark:border-zinc-700 dark:text-zinc-400; }
+  & code { @apply rounded bg-zinc-100 px-1 py-0.5 font-mono text-sm dark:bg-zinc-800; }
+  & pre { @apply overflow-x-auto rounded-lg bg-zinc-100 p-4 font-mono text-sm dark:bg-zinc-900; }
+  & pre code { @apply bg-transparent p-0; }
+  & hr { @apply my-6 border-zinc-200 dark:border-zinc-800; }
+  & a { @apply text-blue-600 underline dark:text-blue-400; }
+
+  /* Placeholder on an empty page (from the Placeholder extension). */
+  & p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    @apply pointer-events-none float-left h-0 text-zinc-400;
+  }
+}

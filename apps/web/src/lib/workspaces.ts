@@ -11,6 +11,7 @@ export const queryKeys = {
   /** The page list (sidebar tree) of one workspace. */
   documents: (workspaceId: string) => ["workspaces", workspaceId, "documents"] as const,
   document: (id: string) => ["documents", id] as const,
+  content: (id: string) => ["documents", id, "content"] as const,
 };
 
 export function useWorkspaces() {
