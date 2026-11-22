@@ -153,10 +153,43 @@ describe("PUT /documents/:id/content", () => {
       expect(res.body.error).toBe("invalid_body");
     });
 
+    it("accepts a large page (well over the global 100 kB limit)", async () => {
+      const big = "word ".repeat(300_000); // 1.5 MB of markdown
+      const res = await save(olivia, { state: yState("x"), markdown: big, baseVersion: 0 });
+      expect(res.status).toBe(400); // over MAX_MARKDOWN_LENGTH (1M chars), but it WAS parsed…
+      expect(res.body.error).toBe("invalid_body");
+      const ok = await save(olivia, { state: yState("x"), markdown: "word ".repeat(150_000), baseVersion: 0 }); // 750 kB
+      expect(ok.status).toBe(200);
+    });
+
     it("rejects a body over the size limit with 413", async () => {
       const res = await save(olivia, { state: yState("x"), markdown: "a".repeat(6_000_000), baseVersion: 0 });
       expect(res.status).toBe(413);
       expect(res.body).toEqual({ error: "payload_too_large" });
+    });
+  });
+
+  describe("big bodies are only read for people who may edit", () => {
+    // Over the 5 MB limit: if the body were read first we'd see 413. Seeing 401/403/404
+    // proves the permission check runs BEFORE any of it is read.
+    const tooBig = { state: "QQ==", markdown: "a".repeat(6_000_000), baseVersion: 0 };
+
+    it("anonymous → 401, not 413", async () => {
+      const res = await request(app).put(`/documents/${projects}/content`).send(tooBig);
+      expect(res.status).toBe(401);
+    });
+
+    it("viewer → 403 and outsider → 404, not 413", async () => {
+      expect((await save(vic, tooBig)).status).toBe(403);
+      expect((await save(xena, tooBig)).status).toBe(404);
+    });
+
+    it("every other route keeps the 100 kB limit", async () => {
+      const res = await request(app)
+        .patch(`/documents/${projects}`)
+        .set("Authorization", await as(olivia))
+        .send({ title: "a".repeat(200_000) });
+      expect(res.status).toBe(413);
     });
   });
 

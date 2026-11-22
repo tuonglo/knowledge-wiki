@@ -4,6 +4,7 @@ import { Me } from "@kw/shared";
 import { useQueryClient } from "@tanstack/react-query";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { apiFetch, logout as apiLogout, NotLoggedInError } from "./api";
+import { flushPendingSaves } from "./pending-saves";
 
 export type AuthState =
   | { status: "loading" }
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const queryClient = useQueryClient();
   const logout = useCallback(async () => {
+    await flushPendingSaves(); // e.g. edits typed in the last second, while we still have a session
     await apiLogout();
     // Drop every cached API response, so the next user on this tab never sees ours.
     queryClient.clear();

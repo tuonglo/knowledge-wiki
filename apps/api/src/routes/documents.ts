@@ -1,5 +1,5 @@
 import { SaveContentBody, UpdateDocumentBody } from "@kw/shared";
-import { Router } from "express";
+import express, { type RequestHandler, Router } from "express";
 import type { TokenService } from "../auth/jwt.js";
 import { requireAuth, userIdOf } from "../auth/middleware.js";
 import { type DocEvents, noDocEvents } from "../events.js";
@@ -7,6 +7,9 @@ import type { PrismaClient } from "../generated/prisma/client.js";
 import { HttpError, parseBody } from "../http.js";
 import { authorizeDocument } from "../permissions.js";
 import { isValidYjsUpdate } from "../yjs.js";
+
+/** Page content (base64 Yjs state ≤ ~4 MB + markdown) needs more than the global 100 kB. */
+const CONTENT_BODY_LIMIT = "5mb";
 
 const docFields = {
   id: true,
@@ -69,9 +72,13 @@ export function createDocumentsRouter({
    * and write are ONE atomic statement: two saves from the same base can't both win.
    * The loser gets 409 and must reload instead of silently overwriting newer content.
    */
-  router.put("/:documentId/content", async (req, res) => {
+  const canEdit: RequestHandler = async (req, _res, next) => {
+    await authorizeDocument(prisma, userIdOf(req), String(req.params.documentId), "edit");
+    next();
+  };
+
+  const saveContent: RequestHandler<{ documentId: string }> = async (req, res) => {
     const { documentId } = req.params;
-    await authorizeDocument(prisma, userIdOf(req), documentId, "edit");
     const { state, markdown, baseVersion } = parseBody(SaveContentBody, req.body);
 
     const bytes = Buffer.from(state, "base64");
@@ -97,7 +104,10 @@ export function createDocumentsRouter({
       console.error("doc.saved publish failed", { documentId, version, err });
     }
     res.json({ version });
-  });
+  };
+
+  // Order matters: logged in (router.use above) → may edit THIS page → only then read up to 5 MB.
+  router.put("/:documentId/content", canEdit, express.json({ limit: CONTENT_BODY_LIMIT }), saveContent);
 
   // Deletes the page and (via ON DELETE CASCADE) all its sub-pages.
   router.delete("/:documentId", async (req, res) => {

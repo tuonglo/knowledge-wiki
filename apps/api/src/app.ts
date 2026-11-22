@@ -5,6 +5,11 @@ import helmet from "helmet";
 import type { HealthResponse } from "@kw/shared";
 import { HttpError } from "./http.js";
 
+/** Requests whose route parses its own (larger) body; the global parser leaves them alone. */
+function ownsBodyParsing(req: { method?: string; url?: string }): boolean {
+  return req.method === "PUT" && /^\/documents\/[^/?]+\/content(\?|$)/.test(req.url ?? "");
+}
+
 /** A named dependency probe. Resolves if healthy, rejects otherwise. */
 export type HealthCheck = () => Promise<unknown>;
 
@@ -19,9 +24,9 @@ export function createApp({ webOrigin, checks, routes = {} }: AppDeps): Express 
   const app = express();
   app.use(helmet());
   app.use(cors({ origin: webOrigin, credentials: true }));
-  // The default 100 kB is too small for a page's Yjs state (base64, capped at ~4 MB by
-  // SaveContentBody). Express stops reading at the limit, so oversized bodies cost little.
-  app.use(express.json({ limit: "5mb" }));
+  // JSON bodies up to the default 100 kB. Routes that need more (page content) parse their
+  // own body AFTER checking auth, so anonymous requests can't make us read megabytes.
+  app.use(express.json({ type: (req) => Boolean(req.headers["content-type"]?.includes("json")) && !ownsBodyParsing(req) }));
   app.use(cookieParser());
 
   app.get("/health", async (_req, res) => {

@@ -11,6 +11,7 @@ import * as Y from "yjs";
 import { Autosave, type SaveStatus } from "@/lib/autosave";
 import { fromBase64 } from "@/lib/base64";
 import { loadContent, saveContent, useDocumentContent } from "@/lib/documents";
+import { registerPendingSave } from "@/lib/pending-saves";
 
 /**
  * Where the editor's content lives inside the Y.Doc. NOT "body": Step 4's manual test
@@ -72,7 +73,9 @@ function LoadedEditor({ docId, editable, initial }: { docId: string; editable: b
       if (autosave.hasUnsavedChanges) e.preventDefault();
     };
     window.addEventListener("beforeunload", warn);
+    const unregister = registerPendingSave(() => autosave.flush());
     return () => {
+      unregister();
       window.removeEventListener("beforeunload", warn);
       void autosave.close(); // navigating to another page: send what's pending
     };
