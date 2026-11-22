@@ -1,13 +1,15 @@
 "use client";
 
 /** Workspace data hooks. Every query key lives here, so cache invalidation stays consistent. */
-import { DocumentDetail, Workspace } from "@kw/shared";
+import { Workspace } from "@kw/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { apiFetch } from "./api";
 
 export const queryKeys = {
   workspaces: ["workspaces"] as const,
+  /** The page list (sidebar tree) of one workspace. */
+  documents: (workspaceId: string) => ["workspaces", workspaceId, "documents"] as const,
   document: (id: string) => ["documents", id] as const,
 };
 
@@ -27,13 +29,6 @@ export function useCreateWorkspace() {
       queryClient.setQueryData<Workspace[]>(queryKeys.workspaces, (old) => [...(old ?? []), created]);
       return queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
     },
-  });
-}
-
-export function useDocument(id: string) {
-  return useQuery({
-    queryKey: queryKeys.document(id),
-    queryFn: () => apiFetch(`/documents/${encodeURIComponent(id)}`, {}, DocumentDetail),
   });
 }
 

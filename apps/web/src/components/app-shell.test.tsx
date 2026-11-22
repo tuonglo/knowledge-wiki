@@ -23,6 +23,7 @@ function serve(me: unknown) {
       return me;
     }
     if (path === "/workspaces") return [workspace("a", "Alpha"), workspace("b", "Beta", "VIEWER")];
+    if (path === "/workspaces/a/documents") return [];
     throw new Error(`unexpected ${path}`);
   });
 }

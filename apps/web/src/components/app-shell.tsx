@@ -7,6 +7,7 @@ import { type ReactNode, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { rememberWorkspace, useWorkspaces } from "@/lib/workspaces";
 import { Centered } from "./centered";
+import { PageTree } from "./page-tree";
 import { RequireAuth } from "./require-auth";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 
@@ -40,12 +41,11 @@ function Shell({ user, children }: { user: Me; children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-1">
-      <aside className="flex w-64 shrink-0 flex-col gap-4 border-r border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
+      <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col gap-4 border-r border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/40">
         {/* key: remount (= close the menu) when you switch workspace. */}
         <WorkspaceSwitcher key={current.id} current={current} workspaces={workspaces.data} />
-        <nav aria-label="Pages" className="flex-1 px-2 text-sm text-zinc-500">
-          {/* Step 3: the page tree goes here. */}
-          No pages yet.
+        <nav aria-label="Pages" className="min-h-0 flex-1 overflow-y-auto">
+          <PageTree key={current.id} workspace={current} />
         </nav>
         <UserMenu user={user} />
       </aside>

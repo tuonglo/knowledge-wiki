@@ -2,8 +2,9 @@
 
 import { useParams } from "next/navigation";
 import { Centered } from "@/components/centered";
+import { PageTitle } from "@/components/page-title";
 import { ApiError } from "@/lib/api";
-import { useDocument } from "@/lib/workspaces";
+import { useDocument } from "@/lib/documents";
 
 /** One page. Step 5 replaces the placeholder body with the editor. */
 export default function DocumentPage() {
@@ -24,7 +25,8 @@ export default function DocumentPage() {
 
   return (
     <article className="mx-auto w-full max-w-3xl px-8 py-16">
-      <h1 className="text-4xl font-bold">{doc.data.title}</h1>
+      {/* key: start with a fresh draft when you navigate to a different page. */}
+      <PageTitle key={doc.data.id} doc={doc.data} />
       <p className="mt-2 text-xs uppercase tracking-wide text-zinc-500">{doc.data.role.toLowerCase()}</p>
     </article>
   );
