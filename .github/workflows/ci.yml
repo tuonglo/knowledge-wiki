@@ -89,6 +89,14 @@ jobs:
         run: docker compose exec -T postgres psql -U kw -d kw -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM "User"' -c 'SELECT * FROM kw_document_roles($$nobody$$)'
       - name: Protected routes reject anonymous requests
         run: test "$(curl -s -o /dev/null -w '%{http_code}' localhost:3000/api/me)" = 401
+      # A WebSocket upgrade through the web app's /api proxy must reach the API, which
+      # refuses it without a ticket (401). If the proxy dropped upgrades, there'd be no 401.
+      - name: WebSocket upgrades are proxied to the API
+        run: |
+          test "$(curl -s -o /dev/null -w '%{http_code}' \
+            -H 'Connection: Upgrade' -H 'Upgrade: websocket' \
+            -H 'Sec-WebSocket-Version: 13' -H 'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==' \
+            localhost:3000/api/collab/x)" = 401
       - if: failure()
         run: docker compose --profile app logs
       - if: always()

@@ -1,21 +1,9 @@
 import { DOC_SAVED_STREAM, DocSavedEvent } from "@kw/shared";
-import { Redis } from "ioredis";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createRedisDocEvents } from "./events.js";
+import { createTestRedis } from "./test/redis.js";
 
-/** Real Redis, but logical database 15, so tests never touch dev data (which lives in db 0). */
-function testRedisUrl(): string {
-  try {
-    process.loadEnvFile(new URL("../../../.env", import.meta.url));
-  } catch {
-    // no .env (CI): REDIS_URL comes from the environment
-  }
-  const url = new URL(process.env.REDIS_URL ?? "redis://localhost:6379");
-  url.pathname = "/15";
-  return url.toString();
-}
-
-const redis = new Redis(testRedisUrl(), { maxRetriesPerRequest: 1 });
+const redis = createTestRedis();
 afterAll(() => redis.quit());
 beforeEach(() => redis.flushdb());
 

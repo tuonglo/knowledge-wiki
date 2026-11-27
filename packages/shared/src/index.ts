@@ -138,6 +138,19 @@ export type SaveContentBody = z.infer<typeof SaveContentBody>;
 export const SaveContentResponse = z.object({ version: z.number().int().positive() });
 export type SaveContentResponse = z.infer<typeof SaveContentResponse>;
 
+// ---- real-time collaboration ----
+
+/** POST /collab/tickets: ask for a one-time ticket to open a page's WebSocket. */
+export const CreateCollabTicketBody = z.object({ documentId: z.string().min(1) });
+export type CreateCollabTicketBody = z.infer<typeof CreateCollabTicketBody>;
+
+export const CollabTicket = z.object({
+  ticket: z.string(),
+  /** Seconds until the ticket stops working (it also stops after one use). */
+  expiresIn: z.number().int().positive(),
+});
+export type CollabTicket = z.infer<typeof CollabTicket>;
+
 /** Payload published to the `doc.saved` Redis Stream (consumed by the Python indexer). */
 export const DocSavedEvent = z.object({
   documentId: z.string(),

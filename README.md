@@ -90,6 +90,20 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 
 A workspace always keeps at least one OWNER (`409 last_owner`).
 
+## Real-time collaboration
+
+Browsers can't send an `Authorization` header on a WebSocket, so opening one takes two steps:
+
+```
+POST /collab/tickets { documentId }    Bearer auth + view access → { ticket, expiresIn: 30 }
+WS   /collab/:documentId?ticket=…      ticket redeemed once (Redis GETDEL), access re-checked
+```
+
+Tickets are random, stored hashed in Redis, and good for **one** connection to **one** page
+within 30 s, so having one in a URL is harmless. All checks run during the HTTP upgrade:
+a bad ticket gets a plain `401` (no access → `404`, foreign `Origin` → `403`) and never gets
+a socket. Idle connections are pinged every 30 s and dropped if they don't answer.
+
 ## Web app
 
 The browser only talks to `localhost:3000`. Next.js forwards `/api/*` to the API and `/ai/*` to the

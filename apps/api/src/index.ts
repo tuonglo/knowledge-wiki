@@ -2,6 +2,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Redis } from "ioredis";
 import { createApp } from "./app.js";
 import { createTokenService } from "./auth/jwt.js";
+import { createCollabRouter } from "./collab/routes.js";
+import { attachCollab } from "./collab/server.js";
+import { createRedisTicketStore } from "./collab/tickets.js";
 import { createGitHubProvider, createGoogleProvider, type OAuthProvider } from "./auth/providers.js";
 import { createAuthRouter } from "./auth/routes.js";
 import { env } from "./env.js";
@@ -15,6 +18,7 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: env.DATABASE_URL }),
 });
 const redis = new Redis(env.REDIS_URL, { lazyConnect: false, maxRetriesPerRequest: 1 });
+const tickets = createRedisTicketStore(redis);
 const tokens = await createTokenService({
   privateKeyPem: env.JWT_PRIVATE_KEY,
   publicKeyPem: env.JWT_PUBLIC_KEY,
@@ -63,6 +67,7 @@ const app = createApp({
     "/me": createMeRouter({ prisma, tokens }),
     "/workspaces": createWorkspacesRouter({ prisma, tokens }),
     "/documents": createDocumentsRouter({ prisma, tokens, events: createRedisDocEvents(redis) }),
+    "/collab": createCollabRouter({ prisma, tokens, tickets }),
   },
 });
 
@@ -71,7 +76,11 @@ const server = app.listen(env.API_PORT, () => {
   console.log(`api listening on :${env.API_PORT} — login providers: ${enabled}`);
 });
 
+// WebSockets share the HTTP server's port: they arrive as HTTP requests asking to "upgrade".
+const collab = attachCollab(server, { prisma, tickets, webOrigin: env.WEB_ORIGIN });
+
 async function shutdown() {
+  await collab.close(); // open sockets would otherwise keep server.close() waiting forever
   server.close();
   await Promise.allSettled([prisma.$disconnect(), redis.quit()]);
   process.exit(0);
